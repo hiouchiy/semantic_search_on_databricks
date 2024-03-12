@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md 
-# MAGIC ### 環境
+# MAGIC ## 環境
 # MAGIC - Runtime: 14.2 ML
 # MAGIC - Node type: i3.2xlarge (Single Node)
 
@@ -91,7 +91,16 @@ display(spark.table(embed_table_name))
 
 # COMMAND ----------
 
-# DBTITLE 1,埋め込みモデルとして基盤モデルdatabricks-bge-large-enを使用
+# MAGIC %md
+# MAGIC （注）このデモでは埋め込みモデルとしてデータブリックスがホストしている基盤モデルの中から`databricks-bge-large-en`を使用します。
+# MAGIC しかし、こちらは日本語に最適化されているモデルではないため、日本語を取り扱う際の精度を追求する場合は外部サービスやOSSの埋め込みモデルの使用を検討ください。
+# MAGIC なお、OSS埋め込みモデルをデータブリックス上でサービングする手順は以下のURLをご参照ください。
+# MAGIC
+# MAGIC https://github.com/hiouchiy/databricks-ml-examples/tree/master/llm-models/embedding/e5/multilingual-e5-large
+
+# COMMAND ----------
+
+# DBTITLE 1,基盤モデル "databricks-bge-large-en" を使用
 import mlflow.deployments
 deploy_client = mlflow.deployments.get_deploy_client("databricks")
 
@@ -110,7 +119,14 @@ print(embeddings)
 
 # COMMAND ----------
 
-# DBTITLE 1,ベクターサーチ・エンドポイントの作成
+# MAGIC %md
+# MAGIC ### 2.1. ベクターサーチのエンドポイントを作成
+# MAGIC
+# MAGIC ベクターサーチのエンドポイントは[GUIからも作成](https://docs.databricks.com/ja/generative-ai/create-query-vector-search.html#create-a-vector-search-endpoint-using-the-ui)できますが、本デモでは再現性の確保のためにAPIベースの方法をご紹介いたします。
+
+# COMMAND ----------
+
+# DBTITLE 0,ベクターサーチ・エンドポイントの作成
 from databricks.vector_search.client import VectorSearchClient
 vsc = VectorSearchClient()
 
@@ -128,7 +144,11 @@ print(f"Endpoint named {VECTOR_SEARCH_ENDPOINT_NAME} is ready.")
 
 # COMMAND ----------
 
-# DBTITLE 1,エンドポイントを使って自己管理型ベクターサーチインデックスを作成
+# MAGIC %md
+# MAGIC ### 2.2. ベクターサーチのインデックスを作成
+
+# COMMAND ----------
+
 from databricks.sdk import WorkspaceClient
 import databricks.sdk.service.catalog as c
 
@@ -183,7 +203,8 @@ deploy_client = mlflow.deployments.get_deploy_client("databricks")
 
 question = "コスパの良いエアコンはどれですか？"
 
-results = vsc.get_index(VECTOR_SEARCH_ENDPOINT_NAME, vs_index_fullname).similarity_search(
+vs_index = vsc.get_index(VECTOR_SEARCH_ENDPOINT_NAME, vs_index_fullname)
+results = vs_index.similarity_search(
   query_text=question,
   columns=["query", "response"],
   num_results=3)
