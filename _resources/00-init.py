@@ -40,15 +40,15 @@ assert float(current_version) >= float(min_required_version), f'The Databricks v
 # COMMAND ----------
 
 if reset_all_data:
-  print(f'clearing up db {dbName}')
-  spark.sql(f"DROP DATABASE IF EXISTS `{dbName}` CASCADE")
+  print(f'clearing up db {schema}')
+  spark.sql(f"DROP DATABASE IF EXISTS `{schema}` CASCADE")
 
 # COMMAND ----------
 
-def use_and_create_db(catalog, dbName, cloud_storage_path = None):
+def use_and_create_db(catalog, schema, cloud_storage_path = None):
   print(f"USE CATALOG `{catalog}`")
   spark.sql(f"USE CATALOG `{catalog}`")
-  spark.sql(f"""create database if not exists `{dbName}` """)
+  spark.sql(f"""create database if not exists `{schema}` """)
 
 assert catalog not in ['hive_metastore', 'spark_catalog']
 #If the catalog is defined, we force it to the given value and throw exception if not.
@@ -60,17 +60,17 @@ if len(catalog) > 0:
       spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}")
       if catalog == 'dbdemos':
         spark.sql(f"ALTER CATALOG {catalog} OWNER TO `account users`")
-  use_and_create_db(catalog, dbName)
+  use_and_create_db(catalog, schema)
 
 if catalog == 'dbdemos':
   try:
-    spark.sql(f"GRANT CREATE, USAGE on DATABASE {catalog}.{dbName} TO `account users`")
-    spark.sql(f"ALTER SCHEMA {catalog}.{dbName} OWNER TO `account users`")
+    spark.sql(f"GRANT CREATE, USAGE on DATABASE {catalog}.{schema} TO `account users`")
+    spark.sql(f"ALTER SCHEMA {catalog}.{schema} OWNER TO `account users`")
   except Exception as e:
     print("Couldn't grant access to the schema to all users:"+str(e))    
 
-print(f"using catalog.database `{catalog}`.`{dbName}`")
-spark.sql(f"""USE `{catalog}`.`{dbName}`""")    
+print(f"using catalog.database `{catalog}`.`{schema}`")
+spark.sql(f"""USE `{catalog}`.`{schema}`""")    
 
 # COMMAND ----------
 
