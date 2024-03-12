@@ -35,12 +35,24 @@ embedding_endpoint_name = "databricks-bge-large-en"
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 1. データのダウンロードとテーブル化
+# MAGIC ## 1. データのダウンロード
+# MAGIC
+# MAGIC 元データをWebからダウンロードし、本ノートブックにアタッチしているインスタンスのローカルディスク(/tmp)に一時保存します。
+
+# COMMAND ----------
+
+raw_data_url = "https://raw.githubusercontent.com/hiouchiy/Pratical_RAG_Project/main/airbricks/query.json"
+!wget $raw_data_url -O /tmp/query.json
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 1.1. 元データ格納用のテーブル作成
+# MAGIC ## 2. データのデルタテーブル化
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 2.1. 元データ格納用のテーブル作成
 
 # COMMAND ----------
 
@@ -73,12 +85,9 @@ spark.conf.set("my.embbedTableName", embed_table_name)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 1.2. 元データのダウンロードおよびテーブルへのロード
+# MAGIC ### 2.2. 元データをテーブルへロード
 
 # COMMAND ----------
-
-raw_data_url = "https://raw.githubusercontent.com/hiouchiy/Pratical_RAG_Project/main/airbricks/query.json"
-!wget $raw_data_url -O /tmp/query.json
 
 spark.read.option("multiline","true").json('file:/tmp/query.json').write.mode('overwrite').saveAsTable(embed_table_name)
 
@@ -87,40 +96,7 @@ display(spark.table(embed_table_name))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 2. ベクトルDBの作成
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC （注）このデモでは埋め込みモデルとしてデータブリックスがホストしている基盤モデルの中から`databricks-bge-large-en`を使用します。
-# MAGIC しかし、こちらは日本語に最適化されているモデルではないため、日本語を取り扱う際の精度を追求する場合は外部サービスやOSSの埋め込みモデルの使用を検討ください。
-# MAGIC なお、OSS埋め込みモデルをデータブリックス上でサービングする手順は以下のURLをご参照ください。
-# MAGIC
-# MAGIC https://github.com/hiouchiy/databricks-ml-examples/tree/master/llm-models/embedding/e5/multilingual-e5-large
-
-# COMMAND ----------
-
-# DBTITLE 1,基盤モデル "databricks-bge-large-en" を使用
-import mlflow.deployments
-deploy_client = mlflow.deployments.get_deploy_client("databricks")
-
-response = deploy_client.predict(
-  endpoint = embedding_endpoint_name, 
-  inputs = {
-    "input": [
-      "Apache Sparkとはなんですか?", 
-      "ビッグデータとはなんですか？"
-    ]
-  }
-)
-embeddings = [e for e in response['data'][0]['embedding']]
-
-print(embeddings)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### 2.1. ベクターサーチのエンドポイントを作成
+# MAGIC ## 3. ベクターサーチ・エンドポイントの作成
 # MAGIC
 # MAGIC ベクターサーチのエンドポイントは[GUIからも作成](https://docs.databricks.com/ja/generative-ai/create-query-vector-search.html#create-a-vector-search-endpoint-using-the-ui)できますが、本デモでは再現性の確保のためにAPIベースの方法をご紹介いたします。
 
@@ -145,7 +121,7 @@ print(f"Endpoint named {VECTOR_SEARCH_ENDPOINT_NAME} is ready.")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 2.2. ベクターサーチのインデックスを作成
+# MAGIC ## 4. ベクターサーチのインデックスを作成
 
 # COMMAND ----------
 
@@ -186,7 +162,7 @@ print(f"index {vs_index_fullname} on table {source_table_fullname} is ready")
 # COMMAND ----------
 
 # MAGIC %md 
-# MAGIC ## 3. 類似コンテンツの検索
+# MAGIC ## 5. 類似コンテンツの検索
 # MAGIC
 # MAGIC これだけです。Databricksは自動的にDelta Live Tableの新しいエントリーを取り込み、同期します。
 # MAGIC
@@ -210,6 +186,36 @@ results = vs_index.similarity_search(
   num_results=3)
 docs = results.get('result', {}).get('data_array', [])
 docs
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## おまけ：埋め込みモデルについて
+# MAGIC
+# MAGIC （注）このデモでは埋め込みモデルとしてデータブリックスがホストしている基盤モデルの中から`databricks-bge-large-en`を使用します。
+# MAGIC しかし、こちらは日本語に最適化されているモデルではないため、日本語を取り扱う際の精度を追求する場合は外部サービスやOSSの埋め込みモデルの使用を検討ください。
+# MAGIC なお、OSS埋め込みモデルをデータブリックス上でサービングする手順は以下のURLをご参照ください。
+# MAGIC
+# MAGIC https://github.com/hiouchiy/databricks-ml-examples/tree/master/llm-models/embedding/e5/multilingual-e5-large
+
+# COMMAND ----------
+
+# DBTITLE 1,基盤モデル "databricks-bge-large-en" を使用
+import mlflow.deployments
+deploy_client = mlflow.deployments.get_deploy_client("databricks")
+
+response = deploy_client.predict(
+  endpoint = embedding_endpoint_name, 
+  inputs = {
+    "input": [
+      "Apache Sparkとはなんですか?", 
+      "ビッグデータとはなんですか？"
+    ]
+  }
+)
+embeddings = [e for e in response['data'][0]['embedding']]
+
+print(embeddings)
 
 # COMMAND ----------
 
